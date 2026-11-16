@@ -20,6 +20,11 @@ import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { UpdateEnrollmentDto } from './dto/update-enrollment.dto';
 import { EnrollmentStatus } from './enums/enrollment-status.enum';
 
+import { DataSource } from 'typeorm';
+import { Course } from '../courses/entities/course.entity';
+import { Student } from '../students/entities/student.entity';
+import { DiscountType } from '../courses/enums/discount-type.enum';
+
 @Injectable()
 export class EnrollmentsService {
   constructor(
@@ -31,6 +36,8 @@ export class EnrollmentsService {
 
     @Inject(forwardRef(() => CoursesService))
     private readonly coursesService: CoursesService,
+
+    private readonly dataSource: DataSource,
   ) {}
 
   async findAll() {
@@ -65,13 +72,14 @@ export class EnrollmentsService {
     this.assertAccount(user);
 
     const { courseId } = createEnrollmentDto;
+
     const studentId =
-      user?.role === 'student'
+      user.role === 'student'
         ? Number(user.sub)
         : createEnrollmentDto.studentId;
 
     if (
-      user?.role === 'student' &&
+      user.role === 'student' &&
       createEnrollmentDto.studentId !== undefined &&
       Number(createEnrollmentDto.studentId) !== Number(user.sub)
     ) {
@@ -82,32 +90,86 @@ export class EnrollmentsService {
       throw new BadRequestException('studentId is required');
     }
 
-    await this.studentsService.findOne(studentId);
+    return this.dataSource.transaction(async (manager) => {
+      const studentsRepository = manager.getRepository(Student);
+      const coursesRepository = manager.getRepository(Course);
+      const enrollmentsRepository = manager.getRepository(Enrollment);
 
-    const course = await this.coursesService.findOne(courseId);
+      // 1. Check that student exists
+      const student = await studentsRepository.findOneBy({
+        id: studentId,
+      });
 
-    if (!course.isActive) {
-      throw new BadRequestException('Course is not active');
-    }
+      if (!student) {
+        throw new NotFoundException('Student not found');
+      }
 
-    const activeEnrollment = await this.enrollmentsRepository.findOneBy({
-      studentId,
-      courseId,
-      status: EnrollmentStatus.ACTIVE,
+      // 2. Check that course exists
+      const course = await coursesRepository.findOneBy({
+        id: courseId,
+      });
+
+      if (!course) {
+        throw new NotFoundException('Course not found');
+      }
+
+      // 3. Check that course is active
+      if (!course.isActive) {
+        throw new BadRequestException('Course is not active');
+      }
+
+      // 4. Check for an existing active enrollment
+      const activeEnrollment = await enrollmentsRepository.findOneBy({
+        studentId,
+        courseId,
+        status: EnrollmentStatus.ACTIVE,
+      });
+
+      if (activeEnrollment) {
+        throw new ConflictException(
+          'Student is already enrolled in this course',
+        );
+      }
+
+      let finalPrice = Number(course.price);
+      const discountValue = Number(course.discountValue);
+
+      if (course.discountType === DiscountType.NONE) {
+        finalPrice = Number(course.price);
+      }
+
+      if (course.discountType === DiscountType.PERCENTAGE) {
+        if (discountValue > 100) {
+          throw new BadRequestException(
+            'Percentage discount cannot exceed 100%',
+          );
+        }
+
+        finalPrice -= (finalPrice * discountValue) / 100;
+      }
+
+      if (course.discountType === DiscountType.FIXED) {
+        if (discountValue > finalPrice) {
+          throw new BadRequestException(
+            'Fixed discount cannot exceed course price',
+          );
+        }
+
+        finalPrice -= discountValue;
+      }
+
+      finalPrice = Number(finalPrice.toFixed(2));
+
+      // 6. Create enrollment
+      const newEnrollment = enrollmentsRepository.create({
+        studentId,
+        courseId,
+        priceAtEnrollment: finalPrice,
+        status: EnrollmentStatus.ACTIVE,
+      });
+
+      return enrollmentsRepository.save(newEnrollment);
     });
-
-    if (activeEnrollment) {
-      throw new ConflictException('Student is already enrolled in this course');
-    }
-
-    const newEnrollment = this.enrollmentsRepository.create({
-      studentId,
-      courseId,
-      priceAtEnrollment: course.finalPrice,
-      status: EnrollmentStatus.ACTIVE,
-    });
-
-    return this.enrollmentsRepository.save(newEnrollment);
   }
 
   async update(

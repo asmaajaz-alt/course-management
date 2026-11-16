@@ -20,7 +20,17 @@ export class Role {
   name: string;
 
   @ManyToMany(() => Permission, (permission) => permission.roles)
-  @JoinTable()
+  @JoinTable({
+    name: 'role_permissions',
+    joinColumn: {
+      name: 'roleId',
+      referencedColumnName: 'id',
+    },
+    inverseJoinColumn: {
+      name: 'permissionId',
+      referencedColumnName: 'id',
+    },
+  })
   permissions: Permission[];
 
   @OneToMany(() => Admin, (admin) => admin.role)

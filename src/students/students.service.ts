@@ -4,8 +4,6 @@ import {
   ConflictException,
   BadRequestException,
   ForbiddenException,
-  Inject,
-  forwardRef,
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
@@ -18,7 +16,8 @@ import { Role } from '../roles/entities/role.entity';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 
-import { EnrollmentsService } from '../enrollments/enrollments.service';
+import { DataSource } from 'typeorm';
+import { Enrollment } from '../enrollments/entities/enrollment.entity';
 
 import * as bcrypt from 'bcrypt';
 
@@ -34,8 +33,7 @@ export class StudentsService {
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
 
-    @Inject(forwardRef(() => EnrollmentsService))
-    private readonly enrollmentsService: EnrollmentsService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findAll() {
@@ -126,18 +124,33 @@ export class StudentsService {
   }
 
   async remove(id: number) {
-    await this.findOne(id);
+    return this.dataSource.transaction(async (manager) => {
+      const studentsRepository = manager.getRepository(Student);
+      const enrollmentsRepository = manager.getRepository(Enrollment);
 
-    const hasEnrollments =
-      await this.enrollmentsService.hasEnrollmentsForStudent(id);
+      // 1. Check that student exists
+      const student = await studentsRepository.findOneBy({ id });
 
-    if (hasEnrollments) {
-      throw new ConflictException(
-        'Cannot delete student because enrollments exist',
-      );
-    }
+      if (!student) {
+        throw new NotFoundException(`Student with ID ${id} not found`);
+      }
 
-    await this.studentsRepository.delete(id);
+      // 2. Check whether the student has enrollments
+      const hasEnrollments = await enrollmentsRepository.existsBy({
+        studentId: id,
+      });
+
+      if (hasEnrollments) {
+        throw new ConflictException(
+          'Cannot delete student because enrollments exist',
+        );
+      }
+
+      // 3. Delete student
+      await studentsRepository.delete(id);
+
+      return { message: 'Student deleted successfully' };
+    });
   }
 
   private withoutSecrets(student: Student) {
