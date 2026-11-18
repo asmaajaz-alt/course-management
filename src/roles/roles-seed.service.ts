@@ -67,7 +67,6 @@ export class RolesSeedService implements OnModuleInit {
       'enrollment:update',
     ]);
 
-    // Assign roles to existing accounts that don't have one.
     const students = await this.studentRepository.find();
 
     for (const student of students) {

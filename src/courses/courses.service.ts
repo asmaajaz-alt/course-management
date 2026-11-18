@@ -17,6 +17,7 @@ import { DiscountType } from './enums/discount-type.enum';
 
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 
+
 @Injectable()
 export class CoursesService {
   constructor(

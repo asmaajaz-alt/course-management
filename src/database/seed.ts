@@ -27,7 +27,6 @@ async function seed() {
       const courseRepo = manager.getRepository(Course);
       const enrollmentRepo = manager.getRepository(Enrollment);
 
-      // 1. Permissions
       const permissionNames = [
         'course:create',
         'course:read',
@@ -63,7 +62,6 @@ async function seed() {
         permissions.push(permission);
       }
 
-      // 2. Roles and role_permissions
       const adminPermissions = permissions;
 
       const studentPermissionNames = [
@@ -103,7 +101,6 @@ async function seed() {
       studentRole.permissions = studentPermissions;
       studentRole = await roleRepo.save(studentRole);
 
-      // 3. Initial Admin
       const adminEmail = process.env.ADMIN_EMAIL;
       const adminPassword = process.env.ADMIN_PASSWORD;
       const adminName = process.env.ADMIN_NAME || 'Main Admin';
@@ -130,7 +127,6 @@ async function seed() {
 
       await adminRepo.save(admin);
 
-      // 4. Students
       const studentData = [
         {
           name: 'Sara Ahmad',
@@ -171,7 +167,6 @@ async function seed() {
         students.push(await studentRepo.save(student));
       }
 
-      // 5. Courses
       const courseData = [
         {
           title: 'NestJS Fundamentals',
@@ -223,7 +218,6 @@ async function seed() {
         courses.push(await courseRepo.save(course));
       }
 
-      // 6. Enrollments
       const enrollmentData = [
         {
           student: students[0],
@@ -264,7 +258,6 @@ async function seed() {
         }
       }
 
-      // 7. Attempt enrollment in inactive course: blocked
       const inactiveCourse = courses.find((course) => !course.isActive);
 
       if (inactiveCourse) {

@@ -128,14 +128,12 @@ export class StudentsService {
       const studentsRepository = manager.getRepository(Student);
       const enrollmentsRepository = manager.getRepository(Enrollment);
 
-      // 1. Check that student exists
       const student = await studentsRepository.findOneBy({ id });
 
       if (!student) {
         throw new NotFoundException(`Student with ID ${id} not found`);
       }
 
-      // 2. Check whether the student has enrollments
       const hasEnrollments = await enrollmentsRepository.existsBy({
         studentId: id,
       });
@@ -146,7 +144,6 @@ export class StudentsService {
         );
       }
 
-      // 3. Delete student
       await studentsRepository.delete(id);
 
       return { message: 'Student deleted successfully' };

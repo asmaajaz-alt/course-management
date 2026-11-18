@@ -8,7 +8,6 @@ import {
 
 export class CreateRolesAndPermissions1794830175595 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // 1. Create roles table
     await queryRunner.createTable(
       new Table({
         name: 'roles',
@@ -31,7 +30,6 @@ export class CreateRolesAndPermissions1794830175595 implements MigrationInterfac
       }),
     );
 
-    // 2. Create permissions table
     await queryRunner.createTable(
       new Table({
         name: 'permissions',
@@ -54,7 +52,6 @@ export class CreateRolesAndPermissions1794830175595 implements MigrationInterfac
       }),
     );
 
-    // 3. Create role_permissions junction table
     await queryRunner.createTable(
       new Table({
         name: 'role_permissions',

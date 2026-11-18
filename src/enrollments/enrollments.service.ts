@@ -95,7 +95,6 @@ export class EnrollmentsService {
       const coursesRepository = manager.getRepository(Course);
       const enrollmentsRepository = manager.getRepository(Enrollment);
 
-      // 1. Check that student exists
       const student = await studentsRepository.findOneBy({
         id: studentId,
       });
@@ -104,7 +103,6 @@ export class EnrollmentsService {
         throw new NotFoundException('Student not found');
       }
 
-      // 2. Check that course exists
       const course = await coursesRepository.findOneBy({
         id: courseId,
       });
@@ -113,12 +111,10 @@ export class EnrollmentsService {
         throw new NotFoundException('Course not found');
       }
 
-      // 3. Check that course is active
       if (!course.isActive) {
         throw new BadRequestException('Course is not active');
       }
 
-      // 4. Check for an existing active enrollment
       const activeEnrollment = await enrollmentsRepository.findOneBy({
         studentId,
         courseId,
@@ -160,7 +156,6 @@ export class EnrollmentsService {
 
       finalPrice = Number(finalPrice.toFixed(2));
 
-      // 6. Create enrollment
       const newEnrollment = enrollmentsRepository.create({
         studentId,
         courseId,
